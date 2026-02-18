@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { LogoutButton } from "@/components/auth/LogoutButton";
+import { MobileNav } from "@/components/layout/MobileNav";
 
 export async function Header() {
   const supabase = await createClient();
@@ -18,8 +19,8 @@ export async function Header() {
           </span>
         </Link>
 
-        {/* Navigation */}
-        <nav className="flex items-center space-x-4">
+        {/* Desktop Navigation - hidden on mobile */}
+        <nav className="hidden md:flex items-center space-x-4">
           {user ? (
             <>
               {/* User is logged in */}
@@ -60,6 +61,9 @@ export async function Header() {
             </>
           )}
         </nav>
+
+        {/* Mobile Navigation - hidden on desktop */}
+        <MobileNav user={user ? { email: user.email || "" } : null} />
       </div>
     </header>
   );
