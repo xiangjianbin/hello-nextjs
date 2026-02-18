@@ -1,65 +1,145 @@
-import Image from "next/image";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
 
-export default function Home() {
+export default async function Home() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="flex flex-col items-center justify-center px-4 py-16 sm:py-24">
+      {/* Hero Section */}
+      <div className="mx-auto max-w-3xl text-center">
+        <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+          将您的故事转化为精彩视频
+        </h1>
+        <p className="mt-6 text-lg leading-8 text-muted-foreground">
+          Spring FES Video 是一个智能视频生成平台。只需输入您的故事，
+          AI 将自动将其拆解为分镜场景，生成配图，并最终合成完整的视频作品。
+        </p>
+      </div>
+
+      {/* Features Section */}
+      <div className="mx-auto mt-16 max-w-4xl">
+        <div className="grid gap-8 sm:grid-cols-3">
+          <div className="rounded-lg border border-zinc-200 bg-card p-6 text-center dark:border-zinc-800">
+            <div className="mb-4 text-3xl">📝</div>
+            <h3 className="text-lg font-semibold text-foreground">
+              故事转分镜
+            </h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              AI 智能分析故事内容，自动拆解为多个精彩分镜场景
+            </p>
+          </div>
+          <div className="rounded-lg border border-zinc-200 bg-card p-6 text-center dark:border-zinc-800">
+            <div className="mb-4 text-3xl">🎨</div>
+            <h3 className="text-lg font-semibold text-foreground">
+              智能配图
+            </h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              根据分镜描述自动生成高质量配图，支持多种艺术风格
+            </p>
+          </div>
+          <div className="rounded-lg border border-zinc-200 bg-card p-6 text-center dark:border-zinc-800">
+            <div className="mb-4 text-3xl">🎬</div>
+            <h3 className="text-lg font-semibold text-foreground">
+              视频合成
+            </h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              将分镜图片转换为动态视频，完成您的故事创作
+            </p>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </div>
+
+      {/* CTA Section */}
+      <div className="mt-16 flex flex-col items-center gap-4 sm:flex-row">
+        {user ? (
+          <>
+            <Link
+              href="/create"
+              className="rounded-md bg-primary px-6 py-3 text-base font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              创建新项目
+            </Link>
+            <Link
+              href="/projects"
+              className="rounded-md border border-zinc-200 bg-background px-6 py-3 text-base font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground dark:border-zinc-800"
+            >
+              查看我的项目
+            </Link>
+          </>
+        ) : (
+          <>
+            <Link
+              href="/register"
+              className="rounded-md bg-primary px-6 py-3 text-base font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              立即开始
+            </Link>
+            <Link
+              href="/login"
+              className="rounded-md border border-zinc-200 bg-background px-6 py-3 text-base font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground dark:border-zinc-800"
+            >
+              登录
+            </Link>
+          </>
+        )}
+      </div>
+
+      {/* Workflow Section */}
+      <div className="mx-auto mt-24 max-w-4xl">
+        <h2 className="text-center text-2xl font-bold text-foreground">
+          创作流程
+        </h2>
+        <div className="mt-8 flex flex-col items-center justify-between gap-4 sm:flex-row">
+          <div className="flex flex-col items-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              1
+            </div>
+            <p className="mt-2 text-sm font-medium text-foreground">
+              输入故事
+            </p>
+          </div>
+          <div className="hidden h-px w-16 bg-zinc-200 sm:block dark:bg-zinc-800" />
+          <div className="flex flex-col items-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              2
+            </div>
+            <p className="mt-2 text-sm font-medium text-foreground">
+              生成分镜
+            </p>
+          </div>
+          <div className="hidden h-px w-16 bg-zinc-200 sm:block dark:bg-zinc-800" />
+          <div className="flex flex-col items-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              3
+            </div>
+            <p className="mt-2 text-sm font-medium text-foreground">
+              生成配图
+            </p>
+          </div>
+          <div className="hidden h-px w-16 bg-zinc-200 sm:block dark:bg-zinc-800" />
+          <div className="flex flex-col items-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              4
+            </div>
+            <p className="mt-2 text-sm font-medium text-foreground">
+              生成视频
+            </p>
+          </div>
+          <div className="hidden h-px w-16 bg-zinc-200 sm:block dark:bg-zinc-800" />
+          <div className="flex flex-col items-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              5
+            </div>
+            <p className="mt-2 text-sm font-medium text-foreground">
+              完成
+            </p>
+          </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
