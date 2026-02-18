@@ -26,9 +26,13 @@ export function SceneImageList({
   const totalCount = scenes.length;
   const completedCount = scenes.filter((s) => s.image_status === "completed").length;
   const confirmedCount = scenes.filter((s) => s.image_confirmed).length;
+  const failedCount = scenes.filter((s) => s.image_status === "failed").length;
+  const pendingCount = scenes.filter((s) => s.image_status === "pending").length;
+  const processingCount = scenes.filter((s) => s.image_status === "processing").length;
+
   const allConfirmed = confirmedCount === totalCount && totalCount > 0;
   const allGenerated = completedCount === totalCount && totalCount > 0;
-  const pendingCount = scenes.filter((s) => s.image_status === "pending").length;
+  const hasFailed = failedCount > 0;
 
   // 更新本地场景数据
   const updateLocalScene = useCallback(
@@ -116,7 +120,7 @@ export function SceneImageList({
 
   // 生成所有图片
   const handleGenerateAll = async () => {
-    if (pendingCount === 0) {
+    if (pendingCount === 0 && !hasFailed) {
       setError("没有待生成的图片（所有图片已生成或正在处理中）");
       return;
     }
@@ -138,7 +142,7 @@ export function SceneImageList({
         throw new Error(data.error || "Failed to generate images");
       }
 
-      const { results, failedCount } = await response.json();
+      const { results, failedCount: apiFailedCount } = await response.json();
 
       // 更新本地状态
       setScenes((prev) => {
@@ -160,8 +164,8 @@ export function SceneImageList({
       // 刷新页面数据
       router.refresh();
 
-      if (failedCount > 0) {
-        setError(`生成完成，但 ${failedCount} 张图片失败`);
+      if (apiFailedCount > 0) {
+        setError(`生成完成，但 ${apiFailedCount} 张图片失败，请重试失败的项目`);
       }
     } catch (err) {
       console.error("Error generating all images:", err);
@@ -170,6 +174,50 @@ export function SceneImageList({
       );
     } finally {
       setIsGeneratingAll(false);
+    }
+  };
+
+  // 重试所有失败的图片
+  const handleRetryFailed = async () => {
+    const failedScenes = scenes.filter((s) => s.image_status === "failed");
+    if (failedScenes.length === 0) return;
+
+    setIsGeneratingAll(true);
+    setError(null);
+
+    let successCount = 0;
+    let stillFailedCount = 0;
+
+    for (const scene of failedScenes) {
+      try {
+        updateLocalScene(scene.id, { image_status: "processing" as MediaStatus });
+
+        const response = await fetch(`/api/generate/image/${scene.id}`, {
+          method: "POST",
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to regenerate");
+        }
+
+        const { image } = await response.json();
+        updateLocalScene(scene.id, {
+          image_status: "completed" as MediaStatus,
+          image: image,
+        });
+        successCount++;
+      } catch (err) {
+        console.error(`Failed to regenerate image for scene ${scene.id}:`, err);
+        updateLocalScene(scene.id, { image_status: "failed" as MediaStatus });
+        stillFailedCount++;
+      }
+    }
+
+    setIsGeneratingAll(false);
+    router.refresh();
+
+    if (stillFailedCount > 0) {
+      setError(`重试完成：${successCount} 张成功，${stillFailedCount} 张仍然失败`);
     }
   };
 
@@ -236,56 +284,114 @@ export function SceneImageList({
           <span className="ml-1">
             已确认 {confirmedCount} / {totalCount} 张
           </span>
+          {hasFailed && (
+            <span className="ml-1 text-red-500">
+              ({failedCount} 张失败)
+            </span>
+          )}
         </div>
-        {pendingCount > 0 && (
-          <button
-            onClick={handleGenerateAll}
-            disabled={isGeneratingAll || isConfirmingAll}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isGeneratingAll ? (
-              <>
-                <svg
-                  className="h-4 w-4 animate-spin"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
+        <div className="flex gap-2">
+          {/* 重试失败按钮 */}
+          {hasFailed && (
+            <button
+              onClick={handleRetryFailed}
+              disabled={isGeneratingAll || isConfirmingAll}
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed dark:border-red-700 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30"
+            >
+              {isGeneratingAll ? (
+                <>
+                  <svg
+                    className="h-4 w-4 animate-spin"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                  重试中...
+                </>
+              ) : (
+                <>
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
                     stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
-                生成中...
-              </>
-            ) : (
-              <>
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-                生成所有图片
-              </>
-            )}
-          </button>
-        )}
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                  重试失败 ({failedCount})
+                </>
+              )}
+            </button>
+          )}
+          {/* 生成所有图片按钮 */}
+          {(pendingCount > 0 || hasFailed) && (
+            <button
+              onClick={handleGenerateAll}
+              disabled={isGeneratingAll || isConfirmingAll}
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isGeneratingAll ? (
+                <>
+                  <svg
+                    className="h-4 w-4 animate-spin"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                  生成中...
+                </>
+              ) : (
+                <>
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
+                  {hasFailed ? "生成所有图片" : "生成所有图片"}
+                </>
+              )}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 进度条 */}
@@ -294,11 +400,28 @@ export function SceneImageList({
           <span>生成进度</span>
           <span>{Math.round((completedCount / totalCount) * 100)}%</span>
         </div>
-        <div className="h-2 w-full rounded-full bg-zinc-200 dark:bg-zinc-700">
-          <div
-            className="h-full rounded-full bg-primary transition-all duration-300"
-            style={{ width: `${(completedCount / totalCount) * 100}%` }}
-          />
+        <div className="h-2 w-full rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
+          <div className="flex h-full">
+            {/* 完成部分 - 绿色 */}
+            <div
+              className="bg-green-500 transition-all duration-300"
+              style={{ width: `${(completedCount / totalCount) * 100}%` }}
+            />
+            {/* 失败部分 - 红色 */}
+            {hasFailed && (
+              <div
+                className="bg-red-500 transition-all duration-300"
+                style={{ width: `${(failedCount / totalCount) * 100}%` }}
+              />
+            )}
+            {/* 处理中部分 - 黄色 */}
+            {processingCount > 0 && (
+              <div
+                className="bg-yellow-500 animate-pulse transition-all duration-300"
+                style={{ width: `${(processingCount / totalCount) * 100}%` }}
+              />
+            )}
+          </div>
         </div>
         {allGenerated && !allConfirmed && (
           <div className="flex justify-between text-xs text-muted-foreground">
@@ -319,9 +442,9 @@ export function SceneImageList({
       {/* 错误提示 */}
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
-          <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+          <div className="flex items-start gap-3">
             <svg
-              className="h-4 w-4"
+              className="h-5 w-5 text-red-500 mt-0.5 shrink-0"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -333,7 +456,59 @@ export function SceneImageList({
                 d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            {error}
+            <div className="flex-1">
+              <p className="text-sm text-red-600 dark:text-red-400 font-medium">
+                发生错误
+              </p>
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                {error}
+              </p>
+            </div>
+            <button
+              onClick={() => setError(null)}
+              className="text-red-500 hover:text-red-600"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 失败汇总提示 */}
+      {hasFailed && !error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
+          <div className="flex items-start gap-3">
+            <svg
+              className="h-5 w-5 text-red-500 mt-0.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <div className="text-sm text-red-700 dark:text-red-400">
+              <p className="font-medium">{failedCount} 张图片生成失败</p>
+              <p className="mt-1 text-red-600 dark:text-red-500">
+                请点击「重试失败」按钮重新生成，或单独点击每张失败图片的「重新生成」按钮。
+              </p>
+            </div>
           </div>
         </div>
       )}
@@ -431,7 +606,7 @@ export function SceneImageList({
       )}
 
       {/* 未完成提示 */}
-      {!allGenerated && completedCount > 0 && completedCount < totalCount && (
+      {!allGenerated && completedCount > 0 && completedCount < totalCount && !hasFailed && (
         <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-800 dark:bg-yellow-900/20">
           <div className="flex items-start gap-3">
             <svg

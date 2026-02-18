@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Header } from "@/components/layout/Header";
+import { ToastProvider } from "@/components/ui/Toast";
 
 export const metadata: Metadata = {
   title: "Spring FES Video",
@@ -15,8 +16,10 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <body className="antialiased font-sans">
-        <Header />
-        <main className="min-h-[calc(100vh-4rem)]">{children}</main>
+        <ToastProvider>
+          <Header />
+          <main className="min-h-[calc(100vh-4rem)]">{children}</main>
+        </ToastProvider>
       </body>
     </html>
   );
