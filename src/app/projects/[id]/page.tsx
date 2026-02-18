@@ -3,7 +3,9 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getProjectById } from "@/lib/db/projects";
 import { StageIndicator } from "@/components/project/StageIndicator";
-import type { ProjectStage } from "@/types/database";
+import { SceneGenerator } from "@/components/scene/SceneGenerator";
+import { SceneDescriptionList } from "@/components/scene/SceneDescriptionList";
+import type { ProjectStage, SceneWithMedia } from "@/types/database";
 
 // 风格显示名称映射
 const styleNames: Record<string, string> = {
@@ -166,7 +168,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
         </p>
       </div>
 
-      {/* 分镜预览（占位符） */}
+      {/* 分镜区域 - 根据阶段显示不同内容 */}
       <div className="rounded-lg border border-zinc-200 bg-card p-6 dark:border-zinc-800">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-foreground">分镜列表</h2>
@@ -177,71 +179,25 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
           )}
         </div>
 
-        {project.scenes.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-4xl mb-4">🎬</div>
-            <p className="text-muted-foreground mb-4">
-              还没有分镜，请先生成分镜描述
-            </p>
-            {project.stage === "draft" && (
-              <button className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                  />
-                </svg>
-                生成分镜
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {project.scenes.map((scene, index) => (
-              <div
-                key={scene.id}
-                className="rounded-lg border border-zinc-200 p-4 transition-all hover:border-primary dark:border-zinc-700"
-              >
-                <div className="flex items-start gap-3">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
-                    {index + 1}
-                  </span>
-                  <p className="text-sm text-foreground line-clamp-3">
-                    {scene.description}
-                  </p>
-                </div>
-                {/* 状态指示 */}
-                <div className="mt-3 flex flex-wrap gap-1">
-                  {scene.description_confirmed ? (
-                    <span className="inline-flex items-center rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-600 dark:bg-green-900/30">
-                      描述已确认
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-muted-foreground dark:bg-zinc-800">
-                      描述待确认
-                    </span>
-                  )}
-                  {scene.image && (
-                    <span className="inline-flex items-center rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-600 dark:bg-blue-900/30">
-                      已配图
-                    </span>
-                  )}
-                  {scene.video && (
-                    <span className="inline-flex items-center rounded bg-purple-100 px-1.5 py-0.5 text-xs text-purple-600 dark:bg-purple-900/30">
-                      已生成视频
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+        {/* Draft 阶段 - 显示生成按钮 */}
+        {project.stage === "draft" && (
+          <SceneGenerator projectId={project.id} />
+        )}
+
+        {/* Scenes 阶段 - 显示分镜描述编辑列表 */}
+        {(project.stage === "scenes" || project.stage === "images" || project.stage === "videos" || project.stage === "completed") && project.scenes.length > 0 && (
+          <SceneDescriptionList
+            projectId={project.id}
+            scenes={project.scenes as SceneWithMedia[]}
+          />
+        )}
+
+        {/* 如果有分镜但在 draft 阶段（异常情况） */}
+        {project.stage === "draft" && project.scenes.length > 0 && (
+          <SceneDescriptionList
+            projectId={project.id}
+            scenes={project.scenes as SceneWithMedia[]}
+          />
         )}
       </div>
     </div>
