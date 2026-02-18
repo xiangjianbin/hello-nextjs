@@ -5,6 +5,7 @@ import { getProjectById } from "@/lib/db/projects";
 import { StageIndicator } from "@/components/project/StageIndicator";
 import { SceneGenerator } from "@/components/scene/SceneGenerator";
 import { SceneDescriptionList } from "@/components/scene/SceneDescriptionList";
+import { SceneImageList } from "@/components/scene/SceneImageList";
 import type { ProjectStage, SceneWithMedia } from "@/types/database";
 
 // 风格显示名称映射
@@ -185,8 +186,24 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
         )}
 
         {/* Scenes 阶段 - 显示分镜描述编辑列表 */}
-        {(project.stage === "scenes" || project.stage === "images" || project.stage === "videos" || project.stage === "completed") && project.scenes.length > 0 && (
+        {project.stage === "scenes" && project.scenes.length > 0 && (
           <SceneDescriptionList
+            projectId={project.id}
+            scenes={project.scenes as SceneWithMedia[]}
+          />
+        )}
+
+        {/* Images 阶段 - 显示图片生成列表 */}
+        {project.stage === "images" && project.scenes.length > 0 && (
+          <SceneImageList
+            projectId={project.id}
+            scenes={project.scenes as SceneWithMedia[]}
+          />
+        )}
+
+        {/* Videos 和 Completed 阶段 - 显示图片列表（只读） */}
+        {(project.stage === "videos" || project.stage === "completed") && project.scenes.length > 0 && (
+          <SceneImageList
             projectId={project.id}
             scenes={project.scenes as SceneWithMedia[]}
           />
