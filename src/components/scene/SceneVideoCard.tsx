@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import type { SceneWithMedia, MediaStatus } from "@/types/database";
 
@@ -36,9 +36,9 @@ interface SceneVideoCardProps {
   index: number;
   onRegenerate: (sceneId: string) => Promise<void>;
   onConfirm: (sceneId: string) => Promise<void>;
-  onPollStatus?: (sceneId: string) => Promise<void>;
   isRegenerating?: boolean;
   isConfirming?: boolean;
+  processingCount?: number;
 }
 
 export function SceneVideoCard({
@@ -46,29 +46,65 @@ export function SceneVideoCard({
   index,
   onRegenerate,
   onConfirm,
-  onPollStatus,
   isRegenerating = false,
   isConfirming = false,
+  processingCount = 0,
 }: SceneVideoCardProps) {
   const [localRegenerating, setLocalRegenerating] = useState(false);
   const [localConfirming, setLocalConfirming] = useState(false);
-  const [isPolling, setIsPolling] = useState(false);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const startTimeRef = useRef<number | null>(null);
 
-  const isLoading = isRegenerating || isConfirming || localRegenerating || localConfirming || isPolling;
+  const isLoading = isRegenerating || isConfirming || localRegenerating || localConfirming;
   const videoStatus = scene.video_status;
   const isConfirmed = scene.video_confirmed;
   const statusConfig = videoStatusConfig[videoStatus];
   const hasImage = scene.image && scene.image.url;
   const hasVideo = scene.video && scene.video.url;
+  const isProcessing = videoStatus === "processing";
+
+  // 处理中时显示经过时间
+  useEffect(() => {
+    if (isProcessing) {
+      // 如果刚开始处理，记录开始时间
+      if (startTimeRef.current === null) {
+        startTimeRef.current = Date.now();
+      }
+
+      timerRef.current = setInterval(() => {
+        if (startTimeRef.current) {
+          setElapsedTime(Math.floor((Date.now() - startTimeRef.current) / 1000));
+        }
+      }, 1000);
+    } else {
+      // 不再处理时清理计时器
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      startTimeRef.current = null;
+      setElapsedTime(0);
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [isProcessing]);
+
+  // 格式化时间显示
+  const formatElapsedTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
 
   const handleRegenerate = async () => {
     setLocalRegenerating(true);
     try {
       await onRegenerate(scene.id);
-      // 开始轮询状态
-      if (onPollStatus) {
-        startPolling();
-      }
     } catch (error) {
       console.error("Failed to regenerate video:", error);
     } finally {
@@ -85,31 +121,6 @@ export function SceneVideoCard({
     } finally {
       setLocalConfirming(false);
     }
-  };
-
-  // 轮询视频状态直到完成
-  const startPolling = () => {
-    setIsPolling(true);
-    const pollInterval = setInterval(async () => {
-      try {
-        if (onPollStatus) {
-          await onPollStatus(scene.id);
-        }
-        // 检查状态是否已完成或失败
-        // 状态更新通过父组件传递，这里只负责触发轮询
-      } catch (error) {
-        console.error("Error polling video status:", error);
-      }
-    }, 5000); // 每5秒轮询一次
-
-    // 设置超时，最长轮询5分钟
-    setTimeout(() => {
-      clearInterval(pollInterval);
-      setIsPolling(false);
-    }, 5 * 60 * 1000);
-
-    // 保存 interval ID 以便在组件卸载或完成时清除
-    return () => clearInterval(pollInterval);
   };
 
   return (
@@ -204,11 +215,12 @@ export function SceneVideoCard({
             ) : (
               <div className="flex items-center justify-center h-full">
                 {videoStatus === "processing" ? (
-                  <div className="text-center">
+                  <div className="text-center p-4">
                     {/* 进度动画 */}
-                    <div className="relative h-12 w-12 mx-auto mb-2">
+                    <div className="relative h-16 w-16 mx-auto mb-3">
+                      {/* 外圈旋转动画 */}
                       <svg
-                        className="h-12 w-12 animate-spin text-purple-500"
+                        className="h-16 w-16 animate-spin text-purple-500"
                         fill="none"
                         viewBox="0 0 24 24"
                       >
@@ -228,15 +240,57 @@ export function SceneVideoCard({
                       </svg>
                       {/* 脉冲效果 */}
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="h-6 w-6 bg-purple-500 rounded-full animate-ping opacity-25" />
+                        <div className="h-8 w-8 bg-purple-500 rounded-full animate-ping opacity-25" />
+                      </div>
+                      {/* 中心图标 */}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <svg
+                          className="h-6 w-6 text-purple-500"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                          />
+                        </svg>
                       </div>
                     </div>
+                    {/* 状态文字 */}
                     <p className="text-sm text-purple-600 dark:text-purple-400 font-medium">
                       正在生成视频...
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      视频生成通常需要 1-3 分钟
-                    </p>
+                    {/* 经过时间 */}
+                    <div className="flex items-center justify-center gap-1 mt-2 text-xs text-muted-foreground">
+                      <svg
+                        className="h-3 w-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      <span>已用时 {formatElapsedTime(elapsedTime)}</span>
+                    </div>
+                    {/* 进度提示 */}
+                    <div className="mt-2 flex items-center justify-center gap-1 text-xs text-muted-foreground">
+                      <div className="h-1.5 w-1.5 bg-purple-500 rounded-full animate-pulse" />
+                      <span>每 5 秒自动刷新状态</span>
+                    </div>
+                    {/* 批量处理提示 */}
+                    {processingCount > 1 && (
+                      <p className="text-xs text-purple-500 dark:text-purple-400 mt-1">
+                        同时生成 {processingCount} 个视频中
+                      </p>
+                    )}
                   </div>
                 ) : videoStatus === "failed" ? (
                   <div className="text-center">
@@ -409,11 +463,11 @@ export function SceneVideoCard({
             </button>
           )}
 
-          {/* 轮询状态指示器 */}
-          {isPolling && (
-            <span className="inline-flex items-center gap-1 text-xs text-purple-600 dark:text-purple-400">
-              <div className="h-2 w-2 bg-purple-500 rounded-full animate-pulse" />
-              轮询状态中...
+          {/* 自动刷新状态指示器 */}
+          {isProcessing && (
+            <span className="inline-flex items-center gap-1 text-xs text-purple-600 dark:text-purple-400 animate-pulse">
+              <div className="h-2 w-2 bg-purple-500 rounded-full" />
+              自动更新中
             </span>
           )}
         </div>

@@ -21,8 +21,8 @@ export function SceneVideoList({
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
   const [isConfirmingAll, setIsConfirmingAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pollingActive, setPollingActive] = useState(false);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
-  const pollingSceneIdsRef = useRef<Set<string>>(new Set());
 
   // 清理轮询
   useEffect(() => {
@@ -77,15 +77,12 @@ export function SceneVideoList({
             video_status: "completed" as MediaStatus,
             video: video,
           });
-          // 从轮询集合中移除
-          pollingSceneIdsRef.current.delete(sceneId);
         } else if (status === "failed") {
           updateLocalScene(sceneId, {
             video_status: "failed" as MediaStatus,
           });
-          pollingSceneIdsRef.current.delete(sceneId);
         }
-        // processing 状态继续轮询
+        // processing 状态继续轮询（由全局轮询处理）
       } catch (err) {
         console.error("Error polling video status:", err);
       }
@@ -99,30 +96,40 @@ export function SceneVideoList({
       clearInterval(pollingRef.current);
     }
 
+    setPollingActive(true);
+    console.log("[Polling] Started global polling for video status");
+
     pollingRef.current = setInterval(async () => {
-      const processingScenes = scenes.filter(
-        (s) => s.video_status === "processing" && s.video?.task_id
-      );
+      // 获取当前处理中的场景
+      setScenes((currentScenes) => {
+        const processingScenes = currentScenes.filter(
+          (s) => s.video_status === "processing" && s.video?.task_id
+        );
 
-      if (processingScenes.length === 0) {
-        // 没有正在处理的视频，停止轮询
-        if (pollingRef.current) {
-          clearInterval(pollingRef.current);
-          pollingRef.current = null;
+        if (processingScenes.length === 0) {
+          // 没有正在处理的视频，停止轮询
+          if (pollingRef.current) {
+            clearInterval(pollingRef.current);
+            pollingRef.current = null;
+          }
+          setPollingActive(false);
+          console.log("[Polling] Stopped - no more processing videos");
+          // 刷新页面数据
+          router.refresh();
+          return currentScenes;
         }
-        // 刷新页面数据
-        router.refresh();
-        return;
-      }
 
-      // 轮询所有处理中的视频
-      for (const scene of processingScenes) {
-        if (scene.video?.task_id) {
-          await pollVideoStatus(scene.id, scene.video.task_id);
-        }
-      }
+        // 轮询所有处理中的视频
+        processingScenes.forEach((scene) => {
+          if (scene.video?.task_id) {
+            pollVideoStatus(scene.id, scene.video.task_id);
+          }
+        });
+
+        return currentScenes;
+      });
     }, 5000); // 每5秒轮询一次
-  }, [scenes, pollVideoStatus, router]);
+  }, [pollVideoStatus, router]);
 
   // 当有 processing 状态的视频时自动开始轮询
   useEffect(() => {
@@ -133,6 +140,7 @@ export function SceneVideoList({
       if (pollingRef.current && processingCount === 0) {
         clearInterval(pollingRef.current);
         pollingRef.current = null;
+        setPollingActive(false);
       }
     };
   }, [processingCount, startGlobalPolling]);
@@ -163,9 +171,8 @@ export function SceneVideoList({
           video: video,
         });
 
-        // 开始轮询这个视频的状态
-        if (taskId) {
-          pollingSceneIdsRef.current.add(sceneId);
+        // 开始轮询
+        if (taskId && !pollingRef.current) {
           startGlobalPolling();
         }
       } catch (err) {
@@ -208,17 +215,6 @@ export function SceneVideoList({
       }
     },
     [updateLocalScene, router]
-  );
-
-  // 轮询状态（供卡片调用）
-  const handlePollStatus = useCallback(
-    async (sceneId: string) => {
-      const scene = scenes.find((s) => s.id === sceneId);
-      if (scene?.video?.task_id) {
-        await pollVideoStatus(sceneId, scene.video.task_id);
-      }
-    },
-    [scenes, pollVideoStatus]
   );
 
   // 生成所有视频
@@ -459,7 +455,7 @@ export function SceneVideoList({
             index={index}
             onRegenerate={handleGenerateVideo}
             onConfirm={handleConfirmVideo}
-            onPollStatus={handlePollStatus}
+            processingCount={processingCount}
           />
         ))}
       </div>
@@ -578,9 +574,20 @@ export function SceneVideoList({
               <div className="h-3 w-3 bg-purple-500 rounded-full animate-pulse" />
             </div>
             <div className="text-sm text-purple-700 dark:text-purple-400">
-              <p className="font-medium">视频生成中</p>
+              <div className="flex items-center gap-2">
+                <p className="font-medium">视频生成中</p>
+                {pollingActive && (
+                  <span className="inline-flex items-center gap-1 text-xs bg-purple-100 dark:bg-purple-800 px-2 py-0.5 rounded-full">
+                    <div className="h-1.5 w-1.5 bg-purple-500 rounded-full animate-pulse" />
+                    自动刷新
+                  </span>
+                )}
+              </div>
               <p className="mt-1 text-purple-600 dark:text-purple-500">
-                正在生成 {processingCount} 个视频，视频生成通常需要 1-3 分钟。页面会自动更新状态。
+                正在生成 {processingCount} 个视频，视频生成通常需要 1-3 分钟。
+              </p>
+              <p className="mt-1 text-purple-500 dark:text-purple-600 text-xs">
+                每 5 秒自动检查生成状态
               </p>
             </div>
           </div>
