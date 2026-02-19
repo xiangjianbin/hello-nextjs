@@ -188,7 +188,6 @@ export function SceneVideoCard({
                 fill
                 className="object-cover"
                 sizes="(max-width: 768px) 100vw, 50vw"
-                loading="lazy"
                 priority={index < 3}
               />
             ) : (

@@ -88,6 +88,7 @@ async function createVideoTaskForScene(
           ? error.message
           : 'Unknown error'
 
+    console.error(`Video task creation failed for scene ${scene.id}:`, errorMessage, error)
     return { success: false, error: errorMessage }
   }
 }

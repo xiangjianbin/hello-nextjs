@@ -91,6 +91,27 @@ export async function POST(
       )
     }
 
+    // 下载图片并转换为 Base64 格式
+    // 阿里云 API 对 Base64 图片支持更好
+    let imageBase64: string | undefined
+    console.log(`Downloading image from: ${latestImage.url}`)
+
+    try {
+      const imageResponse = await fetch(latestImage.url)
+      if (imageResponse.ok) {
+        const imageBuffer = await imageResponse.arrayBuffer()
+        const base64 = Buffer.from(imageBuffer).toString('base64')
+        imageBase64 = `data:image/png;base64,${base64}`
+        console.log(`Image converted to Base64, size: ${base64.length} characters`)
+      } else {
+        console.error(`Failed to download image: ${imageResponse.status}`)
+      }
+    } catch (downloadError) {
+      console.error(`Error downloading image: ${downloadError}`)
+    }
+
+    // 4. 获取项目信息（用于获取描述作为提示词）
+
     // 4. 获取项目信息（用于获取描述作为提示词）
     const project = await getProjectById(scene.project_id, user.id)
     if (!project) {
@@ -104,10 +125,10 @@ export async function POST(
     await updateSceneVideoStatus(sceneId, user.id, 'processing')
 
     try {
-      // 5. 调用火山引擎视频生成 API 创建任务
-      // 使用图片 URL 和分镜描述生成视频
+      // 5. 调用阿里云百炼视频生成 API 创建任务
+      // 使用 Base64 图片和分镜描述生成视频
       const videoResponse = await generateVideoFromImage(
-        latestImage.url,
+        imageBase64 || latestImage.url, // 优先使用 Base64，回退到 URL
         scene.description // 使用分镜描述作为提示词
       )
 

@@ -15,7 +15,7 @@ import {
 
 // ==================== 配置 ====================
 
-// 阿里云 DashScope 视频生成 API 地址
+// 阿里云 DashScope 图生视频 API 地址
 const ALIYUN_VIDEO_API_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/video-generation/video-synthesis";
 // 阿里云 DashScope 任务状态查询 API 地址
 const ALIYUN_TASK_API_URL = "https://dashscope.aliyuncs.com/api/v1/tasks";
@@ -124,9 +124,10 @@ async function submitVideoGenerationTask(
       let errorMessage = `API 请求失败: ${response.status}`;
       try {
         const errorData = (await response.json()) as VideoGenerationErrorResponse;
+        console.error('Aliyun Video API error response:', JSON.stringify(errorData, null, 2));
         errorMessage = errorData.message || errorMessage;
-      } catch {
-        // 忽略解析错误
+      } catch (e) {
+        console.error('Failed to parse error response:', e);
       }
       throw new AIGenerationError(errorMessage, "aliyun-video", {
         status: response.status,
