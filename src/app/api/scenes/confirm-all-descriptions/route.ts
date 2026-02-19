@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { confirmAllDescriptions, getScenesByProjectId } from '@/lib/db/scenes'
-import { getProjectById } from '@/lib/db/projects'
+import { getProjectById, updateProjectStage } from '@/lib/db/projects'
 import type { SceneWithMedia } from '@/types/database'
 
 interface ConfirmAllDescriptionsRequest {
@@ -70,7 +70,10 @@ export async function POST(request: NextRequest) {
     // 4. 确认所有分镜描述
     const confirmedCount = await confirmAllDescriptions(projectId, user.id)
 
-    // 5. 获取更新后的分镜列表
+    // 5. 更新项目阶段为 'images'
+    await updateProjectStage(projectId, user.id, 'images')
+
+    // 6. 获取更新后的分镜列表
     const scenes = await getScenesByProjectId(projectId, user.id)
 
     const response: ConfirmAllDescriptionsResponse = {
