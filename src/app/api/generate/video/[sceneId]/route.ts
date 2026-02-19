@@ -12,7 +12,7 @@ import {
   getLatestImage,
   cleanupOldVideoFiles,
 } from '@/lib/db/media'
-import { generateVideoFromImage } from '@/lib/ai/volc-video'
+import { generateVideoFromImage } from '@/lib/ai/aliyun-video'
 import { AIGenerationError } from '@/types/ai'
 import type { Video } from '@/types/database'
 

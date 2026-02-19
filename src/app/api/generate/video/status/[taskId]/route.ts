@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getVideoByTaskId, updateVideo, uploadVideoToStorage } from '@/lib/db/media'
 import { getSceneById, updateSceneVideoStatus } from '@/lib/db/scenes'
-import { getVideoTaskStatus, downloadVideo } from '@/lib/ai/volc-video'
+import { getVideoTaskStatus, downloadVideo } from '@/lib/ai/aliyun-video'
 import { AIGenerationError } from '@/types/ai'
 import type { Video as DbVideo } from '@/types/database'
 

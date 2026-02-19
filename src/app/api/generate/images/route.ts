@@ -15,7 +15,7 @@ import {
   uploadImageToStorage,
   cleanupOldImageFiles,
 } from '@/lib/db/media'
-import { generateSceneImage, downloadImage } from '@/lib/ai/volc-image'
+import { generateSceneImage, downloadImage } from '@/lib/ai/aliyun-image'
 import { AIGenerationError } from '@/types/ai'
 import type { SceneWithMedia, Image } from '@/types/database'
 

@@ -171,7 +171,7 @@ export interface AIServiceConfig {
 export class AIGenerationError extends Error {
   constructor(
     message: string,
-    public readonly provider: "zhipu" | "volc-image" | "volc-video",
+    public readonly provider: "zhipu" | "volc-image" | "volc-video" | "aliyun-image" | "aliyun-video",
     public readonly originalError?: unknown
   ) {
     super(message);
