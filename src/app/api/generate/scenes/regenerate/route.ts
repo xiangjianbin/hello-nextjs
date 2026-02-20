@@ -11,7 +11,7 @@ import {
   deleteScenesByProjectId,
   getScenesByProjectId,
 } from '@/lib/db/scenes'
-import { regenerateScenes } from '@/lib/ai/zhipu'
+import { regenerateScenes } from '@/lib/ai/aliyun-chat'
 import { AIGenerationError } from '@/types/ai'
 import type { SceneWithMedia } from '@/types/database'
 
